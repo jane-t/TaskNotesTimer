@@ -5,7 +5,9 @@
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --mac dmg"
+    "build": "electron-builder --mac dmg",
+    "build:mac": "electron-builder --mac dmg",
+    "build:win": "electron-builder --win"
   },
   "build": {
     "appId": "com.tasknotes.timer",
