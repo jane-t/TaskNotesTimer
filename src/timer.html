@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TaskNotes Timer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Inter:wght@400;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0d0f14;
+    --surface: #151820;
+    --border: #252a35;
+    --accent: #00e5a0;
+    --accent2: #ff6b6b;
+    --text: #e8eaf0;
+    --muted: #6b7280;
+    --running-glow: 0 0 20px rgba(0,229,160,0.35);
+    --stopped-glow: 0 0 12px rgba(0,0,0,0.5);
+  }
+
+  html, body {
+    width: 340px;
+    height: 180px;
+    overflow: hidden;
+    background: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+    font-family: 'Inter', sans-serif;
+  }
+
+  #app {
+    width: 340px;
+    height: 180px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    transition: box-shadow 0.4s ease;
+  }
+
+  #app.running {
+    border-color: var(--accent);
+    box-shadow: var(--running-glow);
+  }
+
+  #titlebar {
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 10px 0 14px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    -webkit-app-region: drag;
+    cursor: move;
+    flex-shrink: 0;
+  }
+
+  #titlebar-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  #titlebar-actions {
+    display: flex;
+    gap: 6px;
+    -webkit-app-region: no-drag;
+  }
+
+  .icon-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--muted);
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    transition: color 0.15s, background 0.15s;
+    line-height: 1;
+    font-size: 13px;
+  }
+  .icon-btn:hover { color: var(--text); background: var(--border); }
+  .icon-btn.danger:hover { color: var(--accent2); }
+
+  #content {
+    flex: 1;
+    padding: 10px 14px 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow: hidden;
+  }
+
+  #task-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 0;
+  }
+  #task-name.idle { color: var(--muted); font-style: italic; font-weight: 400; }
+
+  #timer-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  #timer-display {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    color: var(--text);
+    line-height: 1;
+    transition: color 0.3s;
+    flex: 1;
+  }
+  #app.running #timer-display { color: var(--accent); }
+
+  #pulse {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  #app.running #pulse {
+    background: var(--accent);
+    animation: pulse-anim 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse-anim {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.4; transform: scale(0.75); }
+  }
+
+  #controls {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .ctrl-btn {
+    border: none;
+    border-radius: 7px;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    padding: 5px 12px;
+    transition: all 0.15s;
+    flex: 1;
+  }
+
+  #btn-start { background: var(--accent); color: #0d0f14; }
+  #btn-start:hover { background: #00ffc0; }
+  #btn-start:disabled { opacity: 0.3; cursor: default; }
+
+  #btn-stop { background: transparent; color: var(--accent2); border: 1px solid var(--accent2); }
+  #btn-stop:hover { background: rgba(255,107,107,0.15); }
+  #btn-stop:disabled { opacity: 0.25; cursor: default; }
+
+  #task-list-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    min-width: 0;
+  }
+
+  #task-select {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    padding: 4px 8px;
+    min-width: 0;
+    cursor: pointer;
+    outline: none;
+  }
+  #task-select:focus { border-color: var(--accent); }
+
+  #statusbar {
+    padding: 0 14px 8px 14px;
+    font-size: 10px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+
+  #conn-error {
+    display: none;
+    padding: 10px 14px;
+    font-size: 11px;
+    color: var(--accent2);
+    line-height: 1.5;
+    flex: 1;
+    align-items: center;
+  }
+  #conn-error.visible { display: flex; }
+
+  #scanline { display: none; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="scanline"></div>
+
+  <div id="titlebar">
+    <span id="titlebar-label">TaskNotes Timer</span>
+    <div id="titlebar-actions">
+      <button class="icon-btn" id="btn-settings" title="Settings">⚙</button>
+      <button class="icon-btn danger" id="btn-close" title="Hide">✕</button>
+    </div>
+  </div>
+
+  <div id="conn-error">
+    ⚠ Cannot connect to TaskNotes API<br>
+    <small>Enable it in Obsidian → Settings → TaskNotes → Integrations → HTTP API</small>
+  </div>
+
+  <div id="main-ui">
+    <div id="content">
+      <div id="task-list-row">
+        <select id="task-select">
+          <option value="">— Select a task —</option>
+        </select>
+      </div>
+
+      <div id="task-name" class="idle">No active timer</div>
+
+      <div id="timer-row">
+        <div id="timer-display">00:00:00</div>
+        <div id="pulse"></div>
+      </div>
+
+      <div id="controls">
+        <button class="ctrl-btn" id="btn-start">▶ START</button>
+        <button class="ctrl-btn" id="btn-stop" disabled>■ STOP</button>
+      </div>
+    </div>
+
+    <div id="statusbar">Connecting…</div>
+  </div>
+</div>
+
+<script>
+const { ipcRenderer } = require('electron');
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let state = {
+  running: false,
+  activeTaskId: null,
+  activeTaskTitle: '',
+  startTime: null,
+  sessionElapsed: 0,
+  tasks: [],
+  settings: {},
+};
+
+let timerInterval = null;
+let pollInterval  = null;
+
+// ── DOM refs ──────────────────────────────────────────────────────────────────
+const app        = document.getElementById('app');
+const display    = document.getElementById('timer-display');
+const taskName   = document.getElementById('task-name');
+const taskSelect = document.getElementById('task-select');
+const btnStart   = document.getElementById('btn-start');
+const btnStop    = document.getElementById('btn-stop');
+const statusText = document.getElementById('statusbar');
+const connError  = document.getElementById('conn-error');
+const mainUi     = document.getElementById('main-ui');
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+async function api(method, path, body) {
+  return ipcRenderer.invoke('api-request', { method, path, body });
+}
+
+function fmtTime(secs) {
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  return [h, m, s].map(v => String(v).padStart(2, '0')).join(':');
+}
+
+function setConnected(ok) {
+  connError.classList.toggle('visible', !ok);
+  mainUi.style.display = ok ? 'flex' : 'none';
+  mainUi.style.flexDirection = 'column';
+}
+
+// ── Extract active sessions from API response ─────────────────────────────────
+// Response shape: { activeSessions: [ { task: { id, title }, session: { startTime, elapsedMinutes } }, ... ] }
+function extractSessions(data) {
+  if (!data) return [];
+  if (Array.isArray(data.activeSessions)) return data.activeSessions;
+  return [];
+}
+
+// Get taskId and title from a session entry
+function sessionTaskId(s)    { return s?.task?.id    ?? null; }
+function sessionTaskTitle(s) { return s?.task?.title ?? null; }
+function sessionStartTime(s) { return s?.session?.startTime ? new Date(s.session.startTime).getTime() : Date.now(); }
+function sessionElapsed(s)   { return (s?.session?.elapsedMinutes ?? 0) * 60; } // convert to seconds
+
+// ── Timer tick ────────────────────────────────────────────────────────────────
+function startLocalTick() {
+  stopLocalTick();
+  timerInterval = setInterval(() => {
+    if (!state.startTime) return;
+    const elapsed = state.sessionElapsed + Math.floor((Date.now() - state.startTime) / 1000);
+    display.textContent = fmtTime(elapsed);
+  }, 500);
+}
+
+function stopLocalTick() {
+  clearInterval(timerInterval);
+  timerInterval = null;
+}
+
+// ── API polling ───────────────────────────────────────────────────────────────
+async function pollActiveTimer() {
+  const res = await api('GET', '/api/time/active');
+
+  if (!res.ok) { setConnected(false); return; }
+  setConnected(true);
+
+  const sessions = extractSessions(res.data?.data);
+
+  // Find a session matching our currently tracked task, or take the first one
+  const active = state.activeTaskId
+    ? sessions.find(s => sessionTaskId(s) === state.activeTaskId) ?? sessions[0] ?? null
+    : sessions[0] ?? null;
+
+  if (active) {
+    const taskId = sessionTaskId(active);
+    if (!state.running || state.activeTaskId !== taskId) {
+      // New or changed session — sync to it
+      state.running = true;
+      state.activeTaskId = taskId;
+      state.activeTaskTitle = sessionTaskTitle(active) || taskId;
+      state.startTime = sessionStartTime(active);
+      state.sessionElapsed = sessionElapsed(active);
+      applyRunningUI();
+      startLocalTick();
+    }
+    // Already tracking — local tick keeps the display updating
+  } else {
+    if (state.running) {
+      stopTimer(false);
+    }
+  }
+}
+
+async function loadTasks() {
+  const res = await api('POST', '/api/tasks/query', {
+    type: "group",
+    id: "root",
+    conjunction: "and",
+    children: [
+      {
+        type: "condition",
+        id: "not-archived",
+        property: "archived",
+        operator: "is-not-checked"
+      },
+      {
+        type: "condition",
+        id: "not-completed",
+        property: "status.isCompleted",
+        operator: "is-not-checked"
+      }
+    ],
+    sortKey: "due",
+    sortDirection: "asc",
+    groupKey: "none"
+  });
+
+  if (!res.ok || !res.data?.data?.tasks) {
+    statusText.textContent = 'Failed to load tasks';
+    return;
+  }
+
+  state.tasks = res.data.data.tasks;
+
+  const prev = taskSelect.value;
+  taskSelect.innerHTML = '<option value="">— Select a task —</option>';
+  state.tasks.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t.id || t.path;
+    opt.textContent = t.title || t.id;
+    taskSelect.appendChild(opt);
+  });
+  if (prev) taskSelect.value = prev;
+
+  statusText.textContent = `${state.tasks.length} tasks loaded`;
+}
+
+// ── UI updates ────────────────────────────────────────────────────────────────
+function applyRunningUI() {
+  app.classList.add('running');
+  taskName.textContent = state.activeTaskTitle || state.activeTaskId || 'Unknown task';
+  taskName.classList.remove('idle');
+  btnStart.disabled = true;
+  btnStop.disabled = false;
+  statusText.textContent = 'Timer running…';
+}
+
+function applyIdleUI() {
+  app.classList.remove('running');
+  taskName.textContent = 'No active timer';
+  taskName.classList.add('idle');
+  display.textContent = '00:00:00';
+  btnStart.disabled = false;
+  btnStop.disabled = true;
+  statusText.textContent = 'Idle';
+}
+
+// ── Controls ──────────────────────────────────────────────────────────────────
+async function startTimer() {
+  const taskId = taskSelect.value;
+  if (!taskId) { statusText.textContent = 'Select a task first'; return; }
+
+  statusText.textContent = 'Starting…';
+  btnStart.disabled = true;
+
+  // Stop all active sessions first to avoid "timing already active" error
+  const activeRes = await api('GET', '/api/time/active');
+  const sessions = extractSessions(activeRes?.data?.data);
+  if (sessions.length > 0) {
+    for (const session of sessions) {
+      const id = sessionTaskId(session);
+      if (id) await api('POST', `/api/tasks/${encodeURIComponent(id)}/time/stop`);
+    }
+  }
+
+  const res = await api('POST', `/api/tasks/${encodeURIComponent(taskId)}/time/start`);
+
+  if (!res.ok || !res.data?.success) {
+    const errMsg = res.data?.error || res.error || '?';
+    statusText.textContent = 'Failed: ' + errMsg;
+    btnStart.disabled = false;
+    return;
+  }
+
+  const task = state.tasks.find(t => (t.id || t.path) === taskId);
+  state.running = true;
+  state.activeTaskId = taskId;
+  state.activeTaskTitle = task?.title || taskId;
+  state.startTime = Date.now();
+  state.sessionElapsed = 0;
+
+  applyRunningUI();
+  startLocalTick();
+}
+
+async function stopTimer(sendApi = true) {
+  stopLocalTick();
+
+  if (sendApi && state.activeTaskId) {
+    statusText.textContent = 'Stopping…';
+    const res = await api('POST', `/api/tasks/${encodeURIComponent(state.activeTaskId)}/time/stop`);
+  }
+
+  state.running = false;
+  state.activeTaskId = null;
+  state.startTime = null;
+  state.sessionElapsed = 0;
+  applyIdleUI();
+}
+
+// ── Event listeners ───────────────────────────────────────────────────────────
+btnStart.addEventListener('click', startTimer);
+btnStop.addEventListener('click', () => stopTimer(true));
+
+document.getElementById('btn-settings').addEventListener('click', () => {
+  ipcRenderer.invoke('open-settings');
+});
+
+document.getElementById('btn-close').addEventListener('click', () => {
+  ipcRenderer.invoke('hide-window');
+});
+
+ipcRenderer.on('settings-updated', (_, settings) => {
+  state.settings = settings;
+  clearInterval(pollInterval);
+  pollInterval = setInterval(pollActiveTimer, settings.pollInterval || 3000);
+});
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+async function init() {
+  state.settings = await ipcRenderer.invoke('get-settings');
+
+  await loadTasks();
+  await pollActiveTimer();
+
+  pollInterval = setInterval(pollActiveTimer, state.settings.pollInterval || 3000);
+  setInterval(loadTasks, 30000);
+}
+
+init();
+</script>
+</body>
+</html>

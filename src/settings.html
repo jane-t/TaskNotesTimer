@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>TaskNotes Timer — Settings</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: #0d0f14;
+    color: #e8eaf0;
+    padding: 24px;
+    min-height: 100vh;
+  }
+
+  h1 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #00e5a0;
+    margin-bottom: 20px;
+    letter-spacing: -0.01em;
+  }
+
+  .section {
+    background: #151820;
+    border: 1px solid #252a35;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+
+  .section-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #6b7280;
+    margin-bottom: 12px;
+  }
+
+  .field {
+    margin-bottom: 12px;
+  }
+  .field:last-child { margin-bottom: 0; }
+
+  label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: #9ca3af;
+    margin-bottom: 5px;
+  }
+
+  input[type="text"],
+  input[type="number"],
+  select {
+    width: 100%;
+    background: #0d0f14;
+    border: 1px solid #252a35;
+    border-radius: 6px;
+    color: #e8eaf0;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    padding: 7px 10px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input:focus, select:focus { border-color: #00e5a0; }
+
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .toggle-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .toggle {
+    position: relative;
+    width: 38px;
+    height: 22px;
+  }
+  .toggle input { display: none; }
+  .toggle-slider {
+    position: absolute;
+    inset: 0;
+    background: #252a35;
+    border-radius: 11px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    background: #6b7280;
+    border-radius: 50%;
+    top: 3px;
+    left: 3px;
+    transition: transform 0.2s, background 0.2s;
+  }
+  .toggle input:checked + .toggle-slider { background: rgba(0,229,160,0.25); }
+  .toggle input:checked + .toggle-slider::before {
+    transform: translateX(16px);
+    background: #00e5a0;
+  }
+
+  .hint {
+    font-size: 10px;
+    color: #4b5563;
+    margin-top: 4px;
+  }
+
+  #btn-save {
+    width: 100%;
+    background: #00e5a0;
+    color: #0d0f14;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px;
+    cursor: pointer;
+    margin-top: 4px;
+    transition: background 0.15s;
+  }
+  #btn-save:hover { background: #00ffc0; }
+
+  #status-msg {
+    text-align: center;
+    font-size: 11px;
+    color: #00e5a0;
+    margin-top: 8px;
+    min-height: 16px;
+  }
+
+  #btn-test {
+    background: transparent;
+    border: 1px solid #252a35;
+    color: #9ca3af;
+    border-radius: 6px;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    padding: 5px 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-top: 6px;
+  }
+  #btn-test:hover { border-color: #00e5a0; color: #00e5a0; }
+</style>
+</head>
+<body>
+<h1>⚙ TaskNotes Timer Settings</h1>
+
+<div class="section">
+  <div class="section-title">API Connection</div>
+  <div class="field">
+    <label>TaskNotes HTTP API Port</label>
+    <input type="number" id="apiPort" value="8080" min="1" max="65535">
+    <div class="hint">Default: 8080 — set in Obsidian → TaskNotes → Integrations → HTTP API</div>
+  </div>
+  <div class="field">
+    <label>API Auth Token (optional)</label>
+    <input type="text" id="apiToken" placeholder="Leave blank if no token set">
+  </div>
+  <button id="btn-test">Test Connection</button>
+  <div id="test-result" style="font-size:11px;margin-top:6px;color:#6b7280;"></div>
+</div>
+
+<div class="section">
+  <div class="section-title">Appearance</div>
+
+  <div class="field">
+    <label>Screen Position</label>
+    <select id="position">
+      <option value="top-right">Top Right</option>
+      <option value="top-left">Top Left</option>
+      <option value="top-center">Top Center</option>
+      <option value="bottom-right">Bottom Right</option>
+      <option value="bottom-left">Bottom Left</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <div class="row">
+      <label style="margin:0">Always on Top</label>
+      <label class="toggle">
+        <input type="checkbox" id="alwaysOnTop" checked>
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Window Opacity: <span id="opacityVal">95%</span></label>
+    <input type="range" id="opacity" min="40" max="100" value="95" style="width:100%;accent-color:#00e5a0;">
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Behaviour</div>
+  <div class="field">
+    <label>Poll Interval (ms)</label>
+    <input type="number" id="pollInterval" value="3000" min="1000" max="30000" step="500">
+    <div class="hint">How often to check TaskNotes for timer changes (e.g. 3000 = 3 seconds)</div>
+  </div>
+</div>
+
+<button id="btn-save">Save Settings</button>
+<div id="status-msg"></div>
+
+<script>
+const { ipcRenderer } = require('electron');
+
+const fields = ['apiPort','apiToken','position','alwaysOnTop','opacity','pollInterval'];
+
+async function load() {
+  const s = await ipcRenderer.invoke('get-settings');
+  document.getElementById('apiPort').value = s.apiPort ?? 8080;
+  document.getElementById('apiToken').value = s.apiToken ?? '';
+  document.getElementById('position').value = s.position ?? 'top-right';
+  document.getElementById('alwaysOnTop').checked = s.alwaysOnTop ?? true;
+  document.getElementById('opacity').value = Math.round((s.opacity ?? 0.95) * 100);
+  document.getElementById('opacityVal').textContent = Math.round((s.opacity ?? 0.95) * 100) + '%';
+  document.getElementById('pollInterval').value = s.pollInterval ?? 3000;
+}
+
+document.getElementById('opacity').addEventListener('input', e => {
+  document.getElementById('opacityVal').textContent = e.target.value + '%';
+});
+
+document.getElementById('btn-save').addEventListener('click', async () => {
+  const settings = {
+    apiPort: parseInt(document.getElementById('apiPort').value) || 8080,
+    apiToken: document.getElementById('apiToken').value.trim(),
+    position: document.getElementById('position').value,
+    alwaysOnTop: document.getElementById('alwaysOnTop').checked,
+    opacity: parseInt(document.getElementById('opacity').value) / 100,
+    pollInterval: parseInt(document.getElementById('pollInterval').value) || 3000,
+  };
+  await ipcRenderer.invoke('save-settings', settings);
+  const msg = document.getElementById('status-msg');
+  msg.textContent = '✓ Saved!';
+  setTimeout(() => msg.textContent = '', 2000);
+});
+
+document.getElementById('btn-test').addEventListener('click', async () => {
+  const port = document.getElementById('apiPort').value || 8080;
+  const token = document.getElementById('apiToken').value.trim();
+  const result = document.getElementById('test-result');
+  result.style.color = '#6b7280';
+  result.textContent = 'Testing…';
+
+  const res = await ipcRenderer.invoke('api-request', {
+    method: 'GET',
+    path: '/api/health',
+  });
+
+  if (res.ok && res.data?.success) {
+    result.style.color = '#00e5a0';
+    result.textContent = '✓ Connected to TaskNotes API';
+  } else {
+    result.style.color = '#ff6b6b';
+    result.textContent = '✗ ' + (res.error || 'Could not connect. Is the API enabled in Obsidian?');
+  }
+});
+
+load();
+</script>
+</body>
+</html>
