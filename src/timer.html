@@ -50,7 +50,7 @@
 </div>
 
 <script>
-// All privileged operations go through window.api, exposed by preload.js.
+// All privileged operations go through window.electronAPI, exposed by preload.js.
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let state = {
@@ -79,7 +79,7 @@ const mainUi     = document.getElementById('main-ui');
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 async function api(method, path, body) {
-  return window.api.request(method, path, body);
+  return window.electronAPI.request(method, path, body);
 }
 
 function fmtTime(secs) {
@@ -287,14 +287,14 @@ btnStart.addEventListener('click', startTimer);
 btnStop.addEventListener('click', () => stopTimer(true));
 
 document.getElementById('btn-settings').addEventListener('click', () => {
-  window.api.openSettings();
+  window.electronAPI.openSettings();
 });
 
 document.getElementById('btn-close').addEventListener('click', () => {
-  window.api.hideWindow();
+  window.electronAPI.hideWindow();
 });
 
-window.api.onSettingsUpdated((settings) => {
+window.electronAPI.onSettingsUpdated((settings) => {
   state.settings = settings;
   clearInterval(pollInterval);
   pollInterval = setInterval(pollActiveTimer, settings.pollInterval || 3000);
@@ -302,7 +302,7 @@ window.api.onSettingsUpdated((settings) => {
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 async function init() {
-  state.settings = await window.api.getSettings();
+  state.settings = await window.electronAPI.getSettings();
 
   await loadTasks();
   await pollActiveTimer();

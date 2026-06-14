@@ -3,7 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 // Minimal, explicit API surface exposed to the renderer.
 // The renderer has no direct access to Node, ipcRenderer, or require —
 // only the functions below.
-contextBridge.exposeInMainWorld('api', {
+contextBridge.exposeInMainWorld('electronAPI', {
   // Settings
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
