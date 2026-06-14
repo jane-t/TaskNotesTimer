@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:;">
 <title>TaskNotes Timer — Settings</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
@@ -219,12 +220,12 @@
 <div id="status-msg"></div>
 
 <script>
-const { ipcRenderer } = require('electron');
+// All privileged operations go through window.api, exposed by preload.js.
 
 const fields = ['apiPort','apiToken','position','alwaysOnTop','opacity','pollInterval'];
 
 async function load() {
-  const s = await ipcRenderer.invoke('get-settings');
+  const s = await window.api.getSettings();
   document.getElementById('apiPort').value = s.apiPort ?? 8080;
   document.getElementById('apiToken').value = s.apiToken ?? '';
   document.getElementById('position').value = s.position ?? 'top-right';
@@ -247,7 +248,7 @@ document.getElementById('btn-save').addEventListener('click', async () => {
     opacity: parseInt(document.getElementById('opacity').value) / 100,
     pollInterval: parseInt(document.getElementById('pollInterval').value) || 3000,
   };
-  await ipcRenderer.invoke('save-settings', settings);
+  await window.api.saveSettings(settings);
   const msg = document.getElementById('status-msg');
   msg.textContent = '✓ Saved!';
   setTimeout(() => msg.textContent = '', 2000);
@@ -260,10 +261,7 @@ document.getElementById('btn-test').addEventListener('click', async () => {
   result.style.color = '#6b7280';
   result.textContent = 'Testing…';
 
-  const res = await ipcRenderer.invoke('api-request', {
-    method: 'GET',
-    path: '/api/health',
-  });
+  const res = await window.api.request('GET', '/api/health');
 
   if (res.ok && res.data?.success) {
     result.style.color = '#00e5a0';

@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:;">
 <title>TaskNotes Timer</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Inter:wght@400;600&display=swap');
@@ -262,7 +263,7 @@
 </div>
 
 <script>
-const { ipcRenderer } = require('electron');
+// All privileged operations go through window.api, exposed by preload.js.
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let state = {
@@ -291,7 +292,7 @@ const mainUi     = document.getElementById('main-ui');
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 async function api(method, path, body) {
-  return ipcRenderer.invoke('api-request', { method, path, body });
+  return window.api.request(method, path, body);
 }
 
 function fmtTime(secs) {
@@ -499,14 +500,14 @@ btnStart.addEventListener('click', startTimer);
 btnStop.addEventListener('click', () => stopTimer(true));
 
 document.getElementById('btn-settings').addEventListener('click', () => {
-  ipcRenderer.invoke('open-settings');
+  window.api.openSettings();
 });
 
 document.getElementById('btn-close').addEventListener('click', () => {
-  ipcRenderer.invoke('hide-window');
+  window.api.hideWindow();
 });
 
-ipcRenderer.on('settings-updated', (_, settings) => {
+window.api.onSettingsUpdated((settings) => {
   state.settings = settings;
   clearInterval(pollInterval);
   pollInterval = setInterval(pollActiveTimer, settings.pollInterval || 3000);
@@ -514,7 +515,7 @@ ipcRenderer.on('settings-updated', (_, settings) => {
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 async function init() {
-  state.settings = await ipcRenderer.invoke('get-settings');
+  state.settings = await window.api.getSettings();
 
   await loadTasks();
   await pollActiveTimer();

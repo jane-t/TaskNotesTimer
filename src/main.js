@@ -68,8 +68,9 @@ function createMainWindow() {
     resizable: false,
     focusable: true,
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js'),
     },
   });
 
@@ -88,8 +89,9 @@ function openSettings() {
     height: 500,
     title: 'TaskNotes Timer — Settings',
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js'),
     },
   });
   settingsWindow.loadFile(path.join(__dirname, 'settings.html'));
