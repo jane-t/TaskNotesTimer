@@ -7,12 +7,14 @@ Sits on top of all your windows, shows a live elapsed timer, and controls TaskNo
 
 ## What it looks like
 
-- Dark floating widget (340×180px) that stays above all windows
+- Dark floating widget (227×200px) that stays above all windows
 - Large green monospace clock that counts up while timing
 - Pulsing dot + green glow when a timer is running
 - Drop-down to pick any open/in-progress task
 - START / STOP controls
 - Syncs with TaskNotes — if you start/stop inside Obsidian the overlay updates automatically
+- Single instance only — launching again focuses the existing widget
+- The **✕** button quits the app
 
 ---
 

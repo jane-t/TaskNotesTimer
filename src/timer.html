@@ -22,8 +22,8 @@
   }
 
   html, body {
-    width: 340px;
-    height: 180px;
+    width: 227px;
+    height: 200px;
     overflow: hidden;
     background: transparent;
     user-select: none;
@@ -32,8 +32,8 @@
   }
 
   #app {
-    width: 340px;
-    height: 180px;
+    width: 227px;
+    height: 200px;
     background: var(--bg);
     border: 1px solid var(--border);
     border-radius: 14px;
@@ -387,6 +387,13 @@ async function loadTasks() {
         id: "not-completed",
         property: "status.isCompleted",
         operator: "is-not-checked"
+      },
+      {
+        type: "condition",
+        id: "in-progress",
+        property: "status",
+        operator: "is",
+        value: "in-progress"
       }
     ],
     sortKey: "due",

@@ -1,10 +1,8 @@
-const { app, BrowserWindow, ipcMain, screen, Tray, Menu, nativeImage, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, screen } = require('electron');
 const path = require('path');
 const http = require('http');
-const https = require('https');
 
 let mainWindow = null;
-let tray = null;
 let settingsWindow = null;
 
 // Default settings
@@ -41,8 +39,8 @@ function saveSettings(settings) {
 function getWindowPosition() {
   const display = screen.getPrimaryDisplay();
   const { width, height } = display.workAreaSize;
-  const winWidth = 340;
-  const winHeight = 180;
+  const winWidth = 227;
+  const winHeight = 200;
   const margin = 16;
 
   const positions = {
@@ -59,8 +57,8 @@ function createMainWindow() {
   const pos = getWindowPosition();
 
   mainWindow = new BrowserWindow({
-    width: 340,
-    height: 260,
+    width: 227,
+    height: 200,
     x: pos.x,
     y: pos.y,
     frame: false,
@@ -81,30 +79,6 @@ function createMainWindow() {
   // mainWindow.webContents.openDevTools({ mode: 'detach' });
   // Allow dragging
   mainWindow.setIgnoreMouseEvents(false);
-}
-
-function createTray() {
-  // Create a simple tray icon programmatically
-  const { nativeImage } = require('electron');
-  const icon = nativeImage.createEmpty();
-  // Use a fallback empty icon — will show as generic on some platforms
-  tray = new Tray(icon);
-  tray.setToolTip('TaskNotes Timer');
-
-  const contextMenu = Menu.buildFromTemplate([
-    { label: 'Show/Hide Timer', click: () => {
-      if (mainWindow) {
-        mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show();
-      }
-    }},
-    { label: 'Settings', click: openSettings },
-    { type: 'separator' },
-    { label: 'Quit', click: () => app.quit() },
-  ]);
-  tray.setContextMenu(contextMenu);
-  tray.on('double-click', () => {
-    if (mainWindow) mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show();
-  });
 }
 
 function openSettings() {
@@ -171,16 +145,27 @@ ipcMain.handle('api-request', async (_, { method, path: apiPath, body }) => {
 });
 
 ipcMain.handle('quit-app', () => app.quit());
-ipcMain.handle('hide-window', () => mainWindow?.hide());
+ipcMain.handle('hide-window', () => app.quit());
 
 // ─── App lifecycle ────────────────────────────────────────────────────────────
 
-app.whenReady().then(() => {
-  loadSettings();
-  createMainWindow();
-  // createTray(); // Tray needs a real icon file; skip for now
-});
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
-});
+  app.whenReady().then(() => {
+    loadSettings();
+    createMainWindow();
+  });
+
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') app.quit();
+  });
+}
