@@ -66,6 +66,12 @@ let state = {
 let timerInterval = null;
 let pollInterval  = null;
 
+// Require several consecutive poll failures before showing the "cannot
+// connect" banner. A single slow response (common on slower machines when
+// Obsidian is busy) would otherwise flash the error and self-recover.
+let pollFailCount = 0;
+const POLL_FAIL_THRESHOLD = 3;
+
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 const app        = document.getElementById('app');
 const display    = document.getElementById('timer-display');
@@ -128,7 +134,13 @@ function stopLocalTick() {
 async function pollActiveTimer() {
   const res = await api('GET', '/api/time/active');
 
-  if (!res.ok) { setConnected(false); return; }
+  if (!res.ok) {
+    // Keep showing the last-good UI during transient blips; only surface the
+    // error once failures persist across several consecutive polls.
+    if (++pollFailCount >= POLL_FAIL_THRESHOLD) setConnected(false);
+    return;
+  }
+  pollFailCount = 0;
   setConnected(true);
 
   const sessions = extractSessions(res.data?.data);

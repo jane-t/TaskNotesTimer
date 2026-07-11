@@ -142,7 +142,9 @@ ipcMain.handle('api-request', async (_, { method, path: apiPath, body }) => {
     });
 
     req.on('error', (e) => resolve({ ok: false, error: e.message }));
-    req.setTimeout(3000, () => { req.destroy(); resolve({ ok: false, error: 'Timeout' }); });
+    // Generous timeout, comfortably above the poll interval, so a single slow
+    // response on a busy/slow machine isn't counted as a connection failure.
+    req.setTimeout(8000, () => { req.destroy(); resolve({ ok: false, error: 'Timeout' }); });
 
     if (body) req.write(JSON.stringify(body));
     req.end();
