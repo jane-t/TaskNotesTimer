@@ -1,6 +1,6 @@
 {
   "name": "tasknotes-timer",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "A floating timer widget for TaskNotes",
   "main": "src/main.js",
   "scripts": {

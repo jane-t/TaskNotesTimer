@@ -119,7 +119,10 @@ ipcMain.handle('open-settings', () => openSettings());
 ipcMain.handle('api-request', async (_, { method, path: apiPath, body }) => {
   return new Promise((resolve) => {
     const options = {
-      hostname: 'localhost',
+      // Pin to IPv4 explicitly. Using 'localhost' can resolve to IPv6 ::1
+      // first, which the TaskNotes API (bound to 127.0.0.1) does not answer —
+      // and worse, another process on ::1 could intercept the request.
+      hostname: '127.0.0.1',
       port: appSettings.apiPort,
       path: apiPath,
       method: method || 'GET',
