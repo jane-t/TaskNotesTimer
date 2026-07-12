@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TaskNotes Timer</title>
+<link rel="stylesheet" href="timer.css">
+</head>
+<body>
+<div id="app">
+  <div id="titlebar" data-tauri-drag-region>
+    <span id="titlebar-label" data-tauri-drag-region>TaskNotes Timer</span>
+    <div id="titlebar-actions">
+      <button class="icon-btn" id="btn-settings" title="Settings">⚙</button>
+      <button class="icon-btn danger" id="btn-close" title="Close">✕</button>
+    </div>
+  </div>
+
+  <div id="conn-error">
+    ⚠ Cannot connect to TaskNotes API<br>
+    <small>Enable it in Obsidian → Settings → TaskNotes → Integrations → HTTP API</small>
+  </div>
+
+  <div id="main-ui">
+    <div id="content">
+      <div id="task-list-row">
+        <select id="task-select">
+          <option value="">— Select a task —</option>
+        </select>
+      </div>
+
+      <div id="task-name" class="idle">No active timer</div>
+
+      <div id="timer-row">
+        <div id="timer-display">00:00:00</div>
+        <div id="pulse"></div>
+      </div>
+
+      <div id="controls">
+        <button class="ctrl-btn" id="btn-start">▶ START</button>
+        <button class="ctrl-btn" id="btn-stop" disabled>■ STOP</button>
+      </div>
+    </div>
+
+    <div id="statusbar">Connecting…</div>
+  </div>
+</div>
+
+<script src="main.js"></script>
+</body>
+</html>
