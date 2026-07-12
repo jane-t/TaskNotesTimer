@@ -2,6 +2,11 @@ name: Build Tauri PoC
 
 on:
   workflow_dispatch:
+  push:
+    branches: [poc/tauri]
+    paths:
+      - 'tauri-poc/**'
+      - '.github/workflows/tauri-poc.yml'
 
 jobs:
   build:
