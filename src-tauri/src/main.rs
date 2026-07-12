@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    tauri_poc_lib::run()
+    tasknotes_timer_lib::run()
 }

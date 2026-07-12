@@ -1,29 +1,15 @@
 {
   "name": "tasknotes-timer",
-  "version": "1.0.4",
-  "description": "A floating timer widget for TaskNotes",
-  "main": "src/main.js",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "description": "A lightweight floating timer widget for TaskNotes (Tauri)",
   "scripts": {
-    "start": "electron .",
-    "build": "electron-builder --mac dmg --publish never",
-    "build:mac": "electron-builder --mac dmg --publish never",
-    "build:win": "electron-builder --win --publish never"
-  },
-  "build": {
-    "appId": "com.tasknotes.timer",
-    "productName": "TaskNotes Timer",
-    "directories": {
-      "output": "dist"
-    },
-    "mac": {
-      "category": "public.app-category.productivity"
-    },
-    "dmg": {
-      "title": "TaskNotes Timer"
-    }
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build"
   },
   "devDependencies": {
-    "electron": "^42.3.3",
-    "electron-builder": "^26.8.1"
+    "@tauri-apps/cli": "^2"
   }
 }

@@ -1,178 +1,253 @@
-const { app, BrowserWindow, ipcMain, screen } = require('electron');
-const path = require('path');
-const http = require('http');
+// Timer window renderer. Privileged work goes through Rust commands; settings
+// live in the Rust-managed state (shared with the settings window).
 
-let mainWindow = null;
-let settingsWindow = null;
+const { invoke } = window.__TAURI__.core;
+const { listen } = window.__TAURI__.event;
 
-// Default settings
-let appSettings = {
-  apiPort: 8080,
-  apiToken: '',
-  alwaysOnTop: true,
-  opacity: 0.95,
-  position: 'top-right',
-  showTaskList: true,
-  pollInterval: 3000,
+// ── State ─────────────────────────────────────────────────────────────────────
+let state = {
+  running: false,
+  activeTaskId: null,
+  activeTaskTitle: '',
+  startTime: null,
+  sessionElapsed: 0,
+  tasks: [],
+  settings: { apiPort: 8080, apiToken: '', opacity: 0.95, pollInterval: 3000 },
 };
 
-function loadSettings() {
+let timerInterval = null;
+let pollTimer     = null;
+
+// Tolerate transient poll failures before showing the disconnect banner.
+let pollFailCount = 0;
+const POLL_FAIL_THRESHOLD = 3;
+
+// ── DOM refs ──────────────────────────────────────────────────────────────────
+const app        = document.getElementById('app');
+const display    = document.getElementById('timer-display');
+const taskName   = document.getElementById('task-name');
+const taskSelect = document.getElementById('task-select');
+const btnStart   = document.getElementById('btn-start');
+const btnStop    = document.getElementById('btn-stop');
+const statusText = document.getElementById('statusbar');
+const connError  = document.getElementById('conn-error');
+const mainUi     = document.getElementById('main-ui');
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+async function api(method, path, body) {
   try {
-    const fs = require('fs');
-    const settingsPath = path.join(app.getPath('userData'), 'settings.json');
-    if (fs.existsSync(settingsPath)) {
-      const saved = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-      appSettings = { ...appSettings, ...saved };
-    }
-  } catch (e) {}
-}
-
-function saveSettings(settings) {
-  try {
-    const fs = require('fs');
-    appSettings = { ...appSettings, ...settings };
-    const settingsPath = path.join(app.getPath('userData'), 'settings.json');
-    fs.writeFileSync(settingsPath, JSON.stringify(appSettings, null, 2));
-  } catch (e) {}
-}
-
-function getWindowPosition() {
-  const display = screen.getPrimaryDisplay();
-  const { width, height } = display.workAreaSize;
-  const winWidth = 227;
-  const winHeight = 200;
-  const margin = 16;
-
-  const positions = {
-    'top-right':    { x: width - winWidth - margin,  y: margin },
-    'top-left':     { x: margin,                      y: margin },
-    'bottom-right': { x: width - winWidth - margin,  y: height - winHeight - margin },
-    'bottom-left':  { x: margin,                      y: height - winHeight - margin },
-    'top-center':   { x: Math.round((width - winWidth) / 2), y: margin },
-  };
-  return positions[appSettings.position] || positions['top-right'];
-}
-
-function createMainWindow() {
-  const pos = getWindowPosition();
-
-  mainWindow = new BrowserWindow({
-    width: 227,
-    height: 200,
-    x: pos.x,
-    y: pos.y,
-    frame: false,
-    transparent: true,
-    alwaysOnTop: appSettings.alwaysOnTop,
-    skipTaskbar: true,
-    resizable: false,
-    focusable: true,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js'),
-    },
-  });
-
-  mainWindow.setOpacity(appSettings.opacity);
-  mainWindow.loadFile(path.join(__dirname, 'timer.html'));
-  // Add this line:
-  // mainWindow.webContents.openDevTools({ mode: 'detach' });
-  // Allow dragging
-  mainWindow.setIgnoreMouseEvents(false);
-}
-
-function openSettings() {
-  if (settingsWindow) { settingsWindow.focus(); return; }
-  settingsWindow = new BrowserWindow({
-    width: 460,
-    height: 500,
-    title: 'TaskNotes Timer — Settings',
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js'),
-    },
-  });
-  settingsWindow.loadFile(path.join(__dirname, 'settings.html'));
-  settingsWindow.on('closed', () => { settingsWindow = null; });
-}
-
-// ─── IPC handlers ────────────────────────────────────────────────────────────
-
-ipcMain.handle('get-settings', () => appSettings);
-
-ipcMain.handle('save-settings', (_, settings) => {
-  saveSettings(settings);
-  if (mainWindow) {
-    mainWindow.setAlwaysOnTop(appSettings.alwaysOnTop);
-    mainWindow.setOpacity(appSettings.opacity);
-    const pos = getWindowPosition();
-    mainWindow.setPosition(pos.x, pos.y);
-    mainWindow.webContents.send('settings-updated', appSettings);
+    const data = await invoke('api_request', { method, path, body: body ?? null });
+    return { ok: true, data };
+  } catch (e) {
+    return { ok: false, error: String(e) };
   }
-  return appSettings;
-});
-
-ipcMain.handle('open-settings', () => openSettings());
-
-ipcMain.handle('api-request', async (_, { method, path: apiPath, body }) => {
-  return new Promise((resolve) => {
-    const options = {
-      // Pin to IPv4 explicitly. Using 'localhost' can resolve to IPv6 ::1
-      // first, which the TaskNotes API (bound to 127.0.0.1) does not answer —
-      // and worse, another process on ::1 could intercept the request.
-      hostname: '127.0.0.1',
-      port: appSettings.apiPort,
-      path: apiPath,
-      method: method || 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(appSettings.apiToken ? { 'Authorization': `Bearer ${appSettings.apiToken}` } : {}),
-      },
-    };
-
-    const req = http.request(options, (res) => {
-      let data = '';
-      res.on('data', chunk => { data += chunk; });
-      res.on('end', () => {
-        try { resolve({ ok: true, data: JSON.parse(data) }); }
-        catch (e) { resolve({ ok: false, error: 'Invalid JSON' }); }
-      });
-    });
-
-    req.on('error', (e) => resolve({ ok: false, error: e.message }));
-    // Generous timeout, comfortably above the poll interval, so a single slow
-    // response on a busy/slow machine isn't counted as a connection failure.
-    req.setTimeout(8000, () => { req.destroy(); resolve({ ok: false, error: 'Timeout' }); });
-
-    if (body) req.write(JSON.stringify(body));
-    req.end();
-  });
-});
-
-ipcMain.handle('quit-app', () => app.quit());
-ipcMain.handle('hide-window', () => app.quit());
-
-// ─── App lifecycle ────────────────────────────────────────────────────────────
-
-const gotLock = app.requestSingleInstanceLock();
-if (!gotLock) {
-  app.quit();
-} else {
-  app.on('second-instance', () => {
-    if (mainWindow) {
-      mainWindow.show();
-      mainWindow.focus();
-    }
-  });
-
-  app.whenReady().then(() => {
-    loadSettings();
-    createMainWindow();
-  });
-
-  app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') app.quit();
-  });
 }
+
+function fmtTime(secs) {
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  return [h, m, s].map(v => String(v).padStart(2, '0')).join(':');
+}
+
+function setConnected(ok) {
+  connError.classList.toggle('visible', !ok);
+  mainUi.style.display = ok ? 'flex' : 'none';
+  mainUi.style.flexDirection = 'column';
+}
+
+function applyOpacity() {
+  app.style.opacity = String(state.settings.opacity ?? 0.95);
+}
+
+// ── Extract active sessions from API response ─────────────────────────────────
+function extractSessions(data) {
+  if (!data) return [];
+  if (Array.isArray(data.activeSessions)) return data.activeSessions;
+  return [];
+}
+function sessionTaskId(s)    { return s?.task?.id    ?? null; }
+function sessionTaskTitle(s) { return s?.task?.title ?? null; }
+function sessionStartTime(s) { return s?.session?.startTime ? new Date(s.session.startTime).getTime() : Date.now(); }
+function sessionElapsed(s)   { return (s?.session?.elapsedMinutes ?? 0) * 60; }
+
+// ── Timer tick ────────────────────────────────────────────────────────────────
+function startLocalTick() {
+  stopLocalTick();
+  timerInterval = setInterval(() => {
+    if (!state.startTime) return;
+    const elapsed = state.sessionElapsed + Math.floor((Date.now() - state.startTime) / 1000);
+    display.textContent = fmtTime(elapsed);
+  }, 500);
+}
+function stopLocalTick() {
+  clearInterval(timerInterval);
+  timerInterval = null;
+}
+
+// ── API polling ───────────────────────────────────────────────────────────────
+async function pollActiveTimer() {
+  const res = await api('GET', '/api/time/active');
+
+  if (!res.ok) {
+    if (++pollFailCount >= POLL_FAIL_THRESHOLD) setConnected(false);
+    return;
+  }
+  pollFailCount = 0;
+  setConnected(true);
+
+  const sessions = extractSessions(res.data?.data);
+  const active = state.activeTaskId
+    ? sessions.find(s => sessionTaskId(s) === state.activeTaskId) ?? sessions[0] ?? null
+    : sessions[0] ?? null;
+
+  if (active) {
+    const taskId = sessionTaskId(active);
+    if (!state.running || state.activeTaskId !== taskId) {
+      state.running = true;
+      state.activeTaskId = taskId;
+      state.activeTaskTitle = sessionTaskTitle(active) || taskId;
+      state.startTime = sessionStartTime(active);
+      state.sessionElapsed = sessionElapsed(active);
+      applyRunningUI();
+      startLocalTick();
+    }
+  } else {
+    if (state.running) stopTimer(false);
+  }
+}
+
+async function loadTasks() {
+  const res = await api('POST', '/api/tasks/query', {
+    type: "group",
+    id: "root",
+    conjunction: "and",
+    children: [
+      { type: "condition", id: "not-archived",  property: "archived",           operator: "is-not-checked" },
+      { type: "condition", id: "not-completed", property: "status.isCompleted", operator: "is-not-checked" },
+      { type: "condition", id: "in-progress",   property: "status",             operator: "is", value: "in-progress" }
+    ],
+    sortKey: "due",
+    sortDirection: "asc",
+    groupKey: "none"
+  });
+
+  if (!res.ok || !res.data?.data?.tasks) {
+    statusText.textContent = 'Failed to load tasks';
+    return;
+  }
+
+  state.tasks = res.data.data.tasks;
+
+  const prev = taskSelect.value;
+  taskSelect.innerHTML = '<option value="">— Select a task —</option>';
+  state.tasks.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t.id || t.path;
+    opt.textContent = t.title || t.id;
+    taskSelect.appendChild(opt);
+  });
+  if (prev) taskSelect.value = prev;
+
+  statusText.textContent = `${state.tasks.length} tasks loaded`;
+}
+
+// ── UI updates ────────────────────────────────────────────────────────────────
+function applyRunningUI() {
+  app.classList.add('running');
+  taskName.textContent = state.activeTaskTitle || state.activeTaskId || 'Unknown task';
+  taskName.classList.remove('idle');
+  btnStart.disabled = true;
+  btnStop.disabled = false;
+  statusText.textContent = 'Timer running…';
+}
+
+function applyIdleUI() {
+  app.classList.remove('running');
+  taskName.textContent = 'No active timer';
+  taskName.classList.add('idle');
+  display.textContent = '00:00:00';
+  btnStart.disabled = false;
+  btnStop.disabled = true;
+  statusText.textContent = 'Idle';
+}
+
+// ── Controls ──────────────────────────────────────────────────────────────────
+async function startTimer() {
+  const taskId = taskSelect.value;
+  if (!taskId) { statusText.textContent = 'Select a task first'; return; }
+
+  statusText.textContent = 'Starting…';
+  btnStart.disabled = true;
+
+  const activeRes = await api('GET', '/api/time/active');
+  const sessions = extractSessions(activeRes?.data?.data);
+  for (const session of sessions) {
+    const id = sessionTaskId(session);
+    if (id) await api('POST', `/api/tasks/${encodeURIComponent(id)}/time/stop`);
+  }
+
+  const res = await api('POST', `/api/tasks/${encodeURIComponent(taskId)}/time/start`);
+  if (!res.ok || !res.data?.success) {
+    const errMsg = res.data?.error || res.error || '?';
+    statusText.textContent = 'Failed: ' + errMsg;
+    btnStart.disabled = false;
+    return;
+  }
+
+  const task = state.tasks.find(t => (t.id || t.path) === taskId);
+  state.running = true;
+  state.activeTaskId = taskId;
+  state.activeTaskTitle = task?.title || taskId;
+  state.startTime = Date.now();
+  state.sessionElapsed = 0;
+
+  applyRunningUI();
+  startLocalTick();
+}
+
+async function stopTimer(sendApi = true) {
+  stopLocalTick();
+
+  if (sendApi && state.activeTaskId) {
+    statusText.textContent = 'Stopping…';
+    await api('POST', `/api/tasks/${encodeURIComponent(state.activeTaskId)}/time/stop`);
+  }
+
+  state.running = false;
+  state.activeTaskId = null;
+  state.startTime = null;
+  state.sessionElapsed = 0;
+  applyIdleUI();
+}
+
+function restartPolling() {
+  clearInterval(pollTimer);
+  pollTimer = setInterval(pollActiveTimer, state.settings.pollInterval || 3000);
+}
+
+// ── Event listeners ───────────────────────────────────────────────────────────
+btnStart.addEventListener('click', startTimer);
+btnStop.addEventListener('click', () => stopTimer(true));
+document.getElementById('btn-settings').addEventListener('click', () => invoke('open_settings'));
+document.getElementById('btn-close').addEventListener('click', () => invoke('quit_app'));
+
+listen('settings-updated', (event) => {
+  state.settings = event.payload;
+  applyOpacity();
+  restartPolling();
+});
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+async function init() {
+  state.settings = await invoke('get_settings');
+  applyOpacity();
+
+  await loadTasks();
+  await pollActiveTimer();
+
+  restartPolling();
+  setInterval(loadTasks, 30000);
+}
+
+init();

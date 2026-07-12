@@ -1,7 +1,12 @@
-# TaskNotes Timer — Desktop Overlay
+# TaskNotes Timer — Desktop Overlay (v2)
 
-A highly-visible desktop timer overlay for the **Obsidian TaskNotes** plugin.
-Sits on top of all your windows, shows a live elapsed timer, and controls TaskNotes time tracking via its HTTP API.
+A lightweight, highly-visible desktop timer overlay for the **Obsidian TaskNotes** plugin.
+Sits on top of all your windows, shows a live elapsed timer, and controls TaskNotes time
+tracking via its HTTP API.
+
+**v2 is built with [Tauri](https://tauri.app)** — it uses the operating system's native
+webview instead of bundling a browser engine, so the installers are ~3 MB instead of
+~100 MB. The previous Electron implementation is preserved under [`legacy/`](legacy/).
 
 ---
 
@@ -13,59 +18,38 @@ Sits on top of all your windows, shows a live elapsed timer, and controls TaskNo
 - Drop-down to pick any open/in-progress task
 - START / STOP controls
 - Syncs with TaskNotes — if you start/stop inside Obsidian the overlay updates automatically
-- Single instance only — launching again focuses the existing widget
-- The **✕** button quits the app
+- System-tray menu (Show/Hide, Settings, Quit) and a single-instance lock
+- Self-hosted fonts — no network calls beyond the local TaskNotes API
 
 ---
 
 ## Prerequisites
 
 1. **Obsidian** with the **TaskNotes** plugin installed
-2. Enable the TaskNotes HTTP API:
-   - Obsidian → Settings → TaskNotes → Integrations → HTTP API → **Enable**
-   - Note the port (default: **8080**)
-3. **Node.js** (v18+) — https://nodejs.org
+2. Enable the TaskNotes HTTP API: Obsidian → Settings → TaskNotes → Integrations → HTTP API → **Enable** (default port **8080**)
+3. For development: **Node.js** (v18+) and the **Rust** toolchain (https://rustup.rs)
 
 ---
 
-## Quick Start
+## Develop / build
 
 ```bash
-# 1. Install dependencies
-npm install
-
-# 2. Run the app
-npm start
+npm install          # install the Tauri CLI
+npm run dev          # run in development with hot reload
+npm run build        # produce a release bundle for the current platform
 ```
 
-The overlay appears in the top-right corner of your primary screen.
+Build output lands in `src-tauri/target/release/bundle/` (`.dmg` on macOS, `.exe` NSIS
+installer on Windows).
 
----
-
-## Building a standalone app
-
-### macOS (.dmg)
-```bash
-npm run build:mac
-# Output: dist/TaskNotes Timer.dmg
-```
-
-### Windows (.exe installer + portable)
-```bash
-npm run build:win
-# Output: dist/TaskNotes Timer Setup.exe  AND  dist/TaskNotes Timer.exe
-```
-
-### Both platforms
-```bash
-npm run build
-```
+CI (`.github/workflows/build.yml`) builds macOS + Windows on a version tag (`v*`) or a
+manual dispatch, and uploads the installers as artifacts.
 
 ---
 
 ## Settings
 
-Click the **⚙** button on the overlay to open Settings:
+Click the **⚙** button (or the tray → Settings) to open Settings:
 
 | Setting | Default | Description |
 |---------|---------|-------------|
@@ -73,7 +57,7 @@ Click the **⚙** button on the overlay to open Settings:
 | API Token | (blank) | Only needed if you set one in TaskNotes |
 | Screen Position | Top Right | Where the overlay appears |
 | Always on Top | On | Float above all other windows |
-| Opacity | 95% | How transparent the window is |
+| Opacity | 95% | How transparent the widget is |
 | Poll Interval | 3000ms | How often to check for external timer changes |
 
 Use **Test Connection** to verify the API is reachable before saving.
@@ -82,35 +66,34 @@ Use **Test Connection** to verify the API is reachable before saving.
 
 ## How it works
 
-- The overlay polls `GET /api/time/active` every few seconds to detect timers started inside Obsidian
-- START calls `POST /api/tasks/:id/time/start`
-- STOP calls `POST /api/tasks/:id/time/stop`
-- The task list is loaded from `POST /api/tasks/query` (open + in-progress tasks)
+- The overlay polls `GET /api/time/active` to detect timers started inside Obsidian
+- START calls `POST /api/tasks/:id/time/start`; STOP calls `POST /api/tasks/:id/time/stop`
+- The task list comes from `POST /api/tasks/query` (open + in-progress tasks)
+- All HTTP goes through the Rust core, pinned to IPv4 `127.0.0.1` to avoid `localhost`
+  resolving to IPv6 `::1`
 
-Because it uses TaskNotes' own API, all session data is written directly to your vault's YAML frontmatter — exactly the same as using TaskNotes itself.
+Because it uses TaskNotes' own API, all session data is written directly to your vault's
+YAML frontmatter — exactly the same as using TaskNotes itself.
+
+---
+
+## Architecture
+
+- **`src/`** — frontend (plain HTML/CSS/JS): `index.html` (timer), `settings.html`, and
+  their scripts/styles; self-hosted fonts under `src/fonts/`
+- **`src-tauri/`** — Rust core: window management, tray, single-instance, settings
+  persistence, and the `api_request` HTTP proxy
+- **`legacy/`** — the original Electron app, kept as a fallback
 
 ---
 
 ## Troubleshooting
 
-**"Cannot connect to TaskNotes API"**
-- Make sure Obsidian is running
-- Make sure TaskNotes HTTP API is enabled (Settings → TaskNotes → Integrations)
-- Check the port matches (default 8080)
-- Check no firewall is blocking localhost connections
+**"Cannot connect to TaskNotes API"** — make sure Obsidian is running, the HTTP API is
+enabled, and the port matches (default 8080).
 
-**Timer shows 00:00:00 even though it's running**
-- Click ⚙ → Test Connection to verify the API responds
-- The overlay polls every 3 seconds; wait a moment after starting from Obsidian
+**macOS "app can't be opened because it's from an unidentified developer"** — right-click
+the app → Open → Open, or run `xattr -cr "/Applications/TaskNotes Timer.app"`.
 
-**On macOS: "app can't be opened because it's from an unidentified developer"**
-- Right-click the app → Open → Open anyway
-- Or: `xattr -cr "/Applications/TaskNotes Timer.app"`
-
----
-
-## Tech stack
-
-- [Electron](https://electronjs.org) — cross-platform desktop shell
-- Pure HTML/CSS/JS — no frontend framework needed
-- TaskNotes HTTP API — all task data stays in your vault
+**Windows SmartScreen "Windows protected your PC"** — the installer is unsigned; click
+**More info → Run anyway**. Requires the Edge WebView2 runtime (preinstalled on Win 10/11).
