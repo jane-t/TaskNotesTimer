@@ -8,6 +8,8 @@ tracking via its HTTP API.
 webview instead of bundling a browser engine, so the installers are ~3 MB instead of
 ~100 MB. The previous Electron implementation is preserved under [`legacy/`](legacy/).
 
+<img width="242" height="220" alt="image" src="https://github.com/user-attachments/assets/6dce9e66-409e-48e1-8540-fd42edf0daee" />
+
 ---
 
 ## What it looks like
