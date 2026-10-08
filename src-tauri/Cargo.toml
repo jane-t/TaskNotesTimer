@@ -1,6 +1,6 @@
 [package]
 name = "tasknotes-timer"
-version = "2.0.0"
+version = "2.0.1"
 description = "A floating timer widget for TaskNotes"
 authors = ["Jane T"]
 edition = "2021"

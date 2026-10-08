@@ -31,6 +31,7 @@ const btnStart   = document.getElementById('btn-start');
 const btnStop    = document.getElementById('btn-stop');
 const statusText = document.getElementById('statusbar');
 const connError  = document.getElementById('conn-error');
+const connHint   = document.getElementById('conn-error-hint');
 const mainUi     = document.getElementById('main-ui');
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -50,7 +51,11 @@ function fmtTime(secs) {
   return [h, m, s].map(v => String(v).padStart(2, '0')).join(':');
 }
 
-function setConnected(ok) {
+const CONN_HINT_DEFAULT = connHint.textContent;
+const CONN_HINT_AUTH    = 'API token missing or wrong — copy it from TaskNotes → Integrations → HTTP API into ⚙ Settings';
+
+function setConnected(ok, error = '') {
+  connHint.textContent = /HTTP 401/.test(error) ? CONN_HINT_AUTH : CONN_HINT_DEFAULT;
   connError.classList.toggle('visible', !ok);
   mainUi.style.display = ok ? 'flex' : 'none';
   mainUi.style.flexDirection = 'column';
@@ -90,7 +95,10 @@ async function pollActiveTimer() {
   const res = await api('GET', '/api/time/active');
 
   if (!res.ok) {
-    if (++pollFailCount >= POLL_FAIL_THRESHOLD) setConnected(false);
+    // Auth failures aren't transient — report them straight away.
+    if (++pollFailCount >= POLL_FAIL_THRESHOLD || /HTTP 401/.test(res.error)) {
+      setConnected(false, res.error);
+    }
     return;
   }
   pollFailCount = 0;
@@ -236,6 +244,9 @@ listen('settings-updated', (event) => {
   state.settings = event.payload;
   applyOpacity();
   restartPolling();
+  // Port/token may have changed — refresh now rather than waiting 30s.
+  loadTasks();
+  pollActiveTimer();
 });
 
 // ── Boot ──────────────────────────────────────────────────────────────────────

@@ -6,6 +6,7 @@ local HTTP API.
 
 | Version | Date | Platform | Headline |
 |---------|------|----------|----------|
+| [2.0.1](#v201--tasknotes-4x-auth--windows-fixes) | 2026-09-24 | Tauri | TaskNotes 4.x auth support + Windows fixes |
 | [2.0.0](#v200--lightweight-tauri-rebuild) | 2026-07-12 | Tauri | Rebuilt on Tauri — ~97% smaller installers |
 | [1.0.4](#v104--connection-stability-on-slower-machines) | 2026-07-11 | Electron | Tolerate transient connection blips |
 | [1.0.3](#v103--ipv4-connection-fix) | 2026-07-11 | Electron | Fix `localhost`/IPv6 connection failure |
@@ -15,6 +16,27 @@ local HTTP API.
 
 > Installers are published on the [GitHub Releases page](https://github.com/jane-t/TaskNotesTimer/releases)
 > from **v1.0.2** onward. Both macOS (`.dmg`) and Windows (`.exe`) builds are unsigned.
+
+---
+
+## v2.0.1 — TaskNotes 4.x auth + Windows fixes
+**2026-09-24** · Tauri
+
+Restores compatibility with current TaskNotes releases (tested against 4.13.5), which
+require the API auth token on every endpoint, and fixes several Windows-only issues.
+
+- **API errors are no longer silent**: the Rust proxy now treats non-2xx responses as
+  failures and passes on the API's message (e.g. `HTTP 401: Authentication required`).
+  Previously a 401 looked like "connected, no tasks".
+- **Auth hint**: a 401 shows the disconnect banner immediately with a prompt to paste the
+  TaskNotes API token into Settings; Test Connection reports the same error.
+- **Settings apply instantly**: saving Settings reloads the task list and active timer
+  instead of waiting up to 30 s.
+- **Windows — blank Settings window**: `open_settings` is now async; building a window from
+  a sync command deadlocked WebView2.
+- **Windows — invisible task drop-down**: explicit dark option colours, and the timer
+  window is no longer transparent on Windows (`tauri.windows.conf.json`), as WebView2 fails
+  to draw `<select>` popups in transparent windows. macOS keeps rounded transparent corners.
 
 ---
 

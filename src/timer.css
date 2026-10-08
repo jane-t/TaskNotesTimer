@@ -186,8 +186,12 @@ html, body {
   min-width: 0;
   cursor: pointer;
   outline: none;
+  color-scheme: dark;
 }
 #task-select:focus { border-color: var(--accent); }
+/* WebView2 (Windows) draws the popup list natively — give options explicit
+   colours or the entries render invisible. */
+#task-select option { background: var(--surface); color: var(--text); }
 
 #statusbar {
   padding: 0 14px 8px 14px;

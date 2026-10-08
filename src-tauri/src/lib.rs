@@ -86,8 +86,10 @@ fn save_settings(
     settings
 }
 
+// Must be async: building a window from a sync command deadlocks on Windows,
+// leaving the new webview blank.
 #[tauri::command]
-fn open_settings(app: AppHandle) -> Result<(), String> {
+async fn open_settings(app: AppHandle) -> Result<(), String> {
     spawn_settings_window(&app).map_err(|e| e.to_string())
 }
 
@@ -136,7 +138,17 @@ async fn api_request(
         .await
         .map_err(|e| e.to_string())?;
 
-    resp.json::<Value>().await.map_err(|e| e.to_string())
+    let status = resp.status();
+    let json = resp.json::<Value>().await.map_err(|e| e.to_string())?;
+    if !status.is_success() {
+        // Surface the API's own message (e.g. 401 "Authentication required").
+        let msg = json
+            .get("error")
+            .and_then(Value::as_str)
+            .unwrap_or_else(|| status.canonical_reason().unwrap_or("request failed"));
+        return Err(format!("HTTP {}: {}", status.as_u16(), msg));
+    }
+    Ok(json)
 }
 
 // ── Windows ───────────────────────────────────────────────────────────────────

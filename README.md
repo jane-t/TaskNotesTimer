@@ -56,7 +56,7 @@ Click the **⚙** button (or the tray → Settings) to open Settings:
 | Setting | Default | Description |
 |---------|---------|-------------|
 | API Port | 8080 | Must match TaskNotes HTTP API port |
-| API Token | (blank) | Only needed if you set one in TaskNotes |
+| API Token | (blank) | Required by current TaskNotes — copy it from TaskNotes → Integrations → HTTP API |
 | Screen Position | Top Right | Where the overlay appears |
 | Always on Top | On | Float above all other windows |
 | Opacity | 95% | How transparent the widget is |

@@ -1,7 +1,7 @@
 {
   "name": "tasknotes-timer",
   "private": true,
-  "version": "2.0.0",
+  "version": "2.0.1",
   "type": "module",
   "description": "A lightweight floating timer widget for TaskNotes (Tauri)",
   "scripts": {
